@@ -261,13 +261,21 @@ async function main() {
   let consumed = Number(me.total_click_consume) || 0; // 开箱成功后累加消耗（let）
   const left = Number(me.left_treasure_chest) || 0;
   const right = Number(me.right_treasure_chest) || 0;
-  ok(`账号: ${me.nickname ?? "?"} (cuid=${me.cuid ?? "?"}${me.id ? " id=" + me.id : ""})`);
+  // 公开仓库的 Actions 日志任何人可见：默认脱敏账号身份（WUWA_VERBOSE=true 显示完整）
+  const VERBOSE = /^(1|true|yes)$/i.test(process.env.WUWA_VERBOSE || "");
+  const shownNick = VERBOSE ? String(me.nickname ?? "?") : String(me.nickname ?? "?").slice(0, 1) + "***";
+  const shownCuid = VERBOSE ? String(me.cuid ?? "?") : "***" + String(me.cuid ?? "?").slice(-4);
+  ok(`账号: ${shownNick} (cuid=${shownCuid})`);
+  if (VERBOSE && me.id) ok(`内部 id: ${me.id}`);
   ok(`服务器账本: 累计点击 ${total.toLocaleString()} | 已消耗 ${consumed.toLocaleString()} | 剩余 ${(total - consumed).toLocaleString()}`);
-  ok(`当前装扮: 角色=${me.character?.name ?? me.character?.id ?? "-"} 配件=${me.accessory?.name ?? me.accessory?.id ?? "-"}`);
+  if (VERBOSE) {
+    ok(`当前装扮: 角色=${me.character?.name ?? me.character?.id ?? "-"} 配件=${me.accessory?.name ?? me.accessory?.id ?? "-"}`);
+  }
   ok(`左宝箱: ${chestState(left, now)} | 右宝箱: ${chestState(right, now)}`);
   if (DRY_RUN) {
-    log("\n[dry-run] user/me 原始响应：");
-    console.log(JSON.stringify(me, null, 2));
+    // 隐私：不打印原始 user/me JSON（公开仓库的 Actions 日志任何人可见，
+    // 其中含 cuid/player_id/昵称等账号身份信息）
+    log("  （dry-run 不打印原始响应；如需完整字段请本地运行）");
   }
 
   // 3) 图鉴/背包进度
