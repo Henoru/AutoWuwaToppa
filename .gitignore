@@ -1,0 +1,5 @@
+# 绝不提交真实令牌/本地配置
+.env
+*.local
+token.txt
+secrets.json

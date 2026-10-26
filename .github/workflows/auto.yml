@@ -1,0 +1,47 @@
+name: AutoWuwaTappo
+
+on:
+  # 定时运行（UTC，注意 +8 时区换算）。示例每 30 分钟一次。
+  # GitHub 免费版最短 5 分钟，且 schedule 有几十秒~几分钟的调度延迟。
+  schedule:
+    - cron: "*/30 * * * *"
+  # 允许手动触发（也用于保活：60 天无活动 schedule 会被暂停，偶尔手动跑一次即可）
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "只读模式（不点击不开箱）"
+        type: boolean
+        default: false
+      click_increment:
+        description: "本次模拟点击增量"
+        default: "1200"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run AutoWuwaTappo
+        env:
+          WUWA_TOKEN: ${{ secrets.WUWA_TOKEN }}
+          WUWA_CLICK_INCREMENT: ${{ inputs.click_increment || vars.WUWA_CLICK_INCREMENT || '1200' }}
+          WUWA_MAX_CHESTS: ${{ vars.WUWA_MAX_CHESTS || '2' }}
+          WUWA_DRY_RUN: ${{ inputs.dry_run == true && 'true' || vars.WUWA_DRY_RUN || 'false' }}
+        run: node index.mjs
+
+      # 可选：自动把服务端轮换出的新令牌写回 Secret（闭环保险）。
+      # 触发条件：index.mjs 检测到"服务端下发了新令牌"（写入 GITHUB_ENV 的 WUWA_NEW_TOKEN）。
+      # 前提：你配置了 Secret PAT_TOKEN（fine-grained PAT，授予本仓库 Secrets 读写权限）。
+      # 注：GitHub 平台限制 GITHUB_TOKEN 不能写 Secrets，必须用 PAT。
+      # 当前实测服务端为滑动续期（不换值），此步骤平时不会触发。
+      - name: Auto-update WUWA_TOKEN secret
+        if: env.WUWA_NEW_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: gh secret set WUWA_TOKEN --body "$WUWA_NEW_TOKEN" --repo "$GITHUB_REPOSITORY"
